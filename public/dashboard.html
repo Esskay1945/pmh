@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Ping My Heart 💕</title>
+    <style>
+        :root {
+            --primary: #ff80b3;
+            --secondary: #ee9ca7;
+            --accent: #b30059;
+            --bg: #fff5f7;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            color: #333;
+        }
+
+        nav {
+            background: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            color: var(--accent);
+            margin-top: 0;
+        }
+
+        .form-grp {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            height: 100px;
+            resize: none;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: var(--accent);
+        }
+
+        .invite-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-tag {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-accepted {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .copy-link {
+            font-size: 0.8rem;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #resultModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 100;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 99;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="logo">Ping My Heart 💕</div>
+        <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Logout</button>
+    </nav>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Create Form -->
+            <div class="card">
+                <h2>Create Your Invite ✨</h2>
+                <form id="inviteForm">
+                    <div class="form-grp">
+                        <label>Her Name 💖</label>
+                        <input type="text" id="name" placeholder="Who is the lucky one?" required>
+                    </div>
+                    <div class="form-grp">
+                        <label>Cute Message (Optional) 📝</label>
+                        <textarea id="message" placeholder="Write something from your heart..."></textarea>
+                    </div>
+                    <div class="form-grp">
+                        <label>Background Music (Optional) 🎶</label>
+                        <input type="file" id="audioFile" accept="audio/*">
+                    </div>
+                    <button type="submit">Generate Secret Link 🪄</button>
+                </form>
+            </div>
+
+            <!-- Invites List -->
+            <div class="card">
+                <h2>Your Invites 📬</h2>
+                <div id="invitesList">
+                    <p style="text-align:center; color:#999;">Loading your invites...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div id="resultModal">
+        <h2>Invite Created! 🎉</h2>
+        <p>Copy this link and send it to her:</p>
+        <input type="text" id="linkOutput" readonly style="margin-bottom: 1rem; text-align: center;">
+        <br>
+        <button onclick="closeModal()">Got it!</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        const session = localStorage.getItem('PMH_SESSION');
+        if (!session) window.location.href = '/login.html';
+
+        let knownAcceptedIds = new Set();
+        let isFirstLoad = true;
+
+        async function fetchInvites() {
+            const res = await fetch('/api/invites', {
+                headers: { 'Authorization': session }
+            });
+            if (!res.ok) return logout();
+            const invites = await res.json();
+            const list = document.getElementById('invitesList');
+
+            if (invites.length === 0) {
+                list.innerHTML = '<p style="text-align:center; color:#999;">No invites yet. Create one!</p>';
+                return;
+            }
+
+            // Check for new acceptances to celebrate
+            let newlyAccepted = [];
+            invites.forEach(inv => {
+                if (inv.status === 'accepted' && !knownAcceptedIds.has(inv.id)) {
+                    newlyAccepted.push(inv);
+                    knownAcceptedIds.add(inv.id);
+                }
+            });
+
+            if (newlyAccepted.length > 0) {
+                if (isFirstLoad) {
+                    // Celebrate the latest accepted invite when first opening the dashboard
+                    celebrateAcceptance(newlyAccepted[0].name);
+                } else {
+                    // Celebrate all as they come in while the page is open
+                    newlyAccepted.forEach(inv => celebrateAcceptance(inv.name));
+                }
+            }
+            isFirstLoad = false;
+
+
+            list.innerHTML = invites.map(inv => `
+        <div class="invite-item">
+          <div>
+            <strong>${inv.name}</strong><br>
+            <span class="copy-link" onclick="copyLink('${window.location.origin}/date.html?id=${inv.id}')">Copy Link</span>
+          </div>
+          <span class="status-tag status-${inv.status}">${inv.status}</span>
+        </div>
+      `).join('');
+        }
+
+        function celebrateAcceptance(name) {
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#ff80b3', '#ff4d88', '#ffffff']
+            });
+
+            const toast = document.createElement('div');
+            toast.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:white; padding:15px 30px; border-radius:50px; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:2px solid #ff80b3; z-index:2000; animation:slideDown 0.5s forwards";
+            toast.innerHTML = `<strong style="color:#b30059">OMG! 💖</strong> ${name} accepted your invite! 🥂`;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = "slideUp 0.5s forwards";
+                setTimeout(() => toast.remove(), 500);
+            }, 5000);
+        }
+
+        document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerText = 'Creating magic... ✨';
+
+            const name = document.getElementById('name').value;
+            const message = document.getElementById('message').value;
+            const audioFile = document.getElementById('audioFile').files[0];
+
+            let audioFilename = '';
+            if (audioFile) {
+                const formData = new FormData();
+                formData.append('audio', audioFile);
+                const uploadRes = await fetch('/api/upload-audio', {
+                    method: 'POST',
+                    headers: { 'Authorization': session },
+                    body: formData
+                });
+                const uploadData = await uploadRes.json();
+                audioFilename = uploadData.filename;
+            }
+
+            const res = await fetch('/api/generate-link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': session
+                },
+                body: JSON.stringify({ name, message, audioFile: audioFilename })
+            });
+
+            const data = await res.json();
+            if (data.linkId) {
+                const link = `${window.location.origin}/date.html?id=${data.linkId}`;
+                document.getElementById('linkOutput').value = link;
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('resultModal').style.display = 'block';
+                fetchInvites();
+                document.getElementById('inviteForm').reset();
+            }
+            btn.disabled = false;
+            btn.innerText = 'Generate Secret Link 🪄';
+        });
+
+        function copyLink(link) {
+            navigator.clipboard.writeText(link);
+            alert('Link copied to clipboard! 💖');
+        }
+
+        function closeModal() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('resultModal').style.display = 'none';
+        }
+
+        function logout() {
+            localStorage.removeItem('PMH_SESSION');
+            window.location.href = '/login.html';
+        }
+
+        // Poll for status updates
+        setInterval(fetchInvites, 5000);
+        fetchInvites();
+    </script>
+
+    <style>
+        @keyframes slideDown {
+            from {
+                top: -100px;
+            }
+
+            to {
+                top: 20px;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                top: 20px;
+            }
+
+            to {
+                top: -100px;
+            }
+        }
+    </style>
+
+</body>
+
+</html>
